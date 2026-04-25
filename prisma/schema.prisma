@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String      @id @default(cuid())
+  name          String?
+  email         String      @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  role          String      @default("CUSTOMER")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  businesses    Business[]
+  reviews       Review[]
+  sessions      Session[]
+  accounts      Account[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Business {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  tagline      String?
+  description  String
+  category     String
+  subcategory  String?
+  tags         String   @default("[]")
+  address      String
+  city         String
+  state        String
+  zip          String
+  country      String   @default("US")
+  phone        String?
+  email        String?
+  website      String?
+  images       String   @default("[]")
+  logoUrl      String?
+
+  hoursJson    String   @default("{}")
+
+  socialLinks  String   @default("{}")
+
+  priceRange   String?
+  yearFounded  Int?
+  employeeCount String?
+
+  featured     Boolean  @default(false)
+  verified     Boolean  @default(false)
+  premium      Boolean  @default(false)
+  active       Boolean  @default(true)
+
+  rating       Float    @default(0)
+  reviewCount  Int      @default(0)
+  viewCount    Int      @default(0)
+  inquiryCount Int      @default(0)
+
+  ownerId      String
+  owner        User     @relation(fields: [ownerId], references: [id])
+
+  reviews      Review[]
+  inquiries    Inquiry[]
+  analytics    BusinessAnalytic[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  rating     Int
+  title      String?
+  comment    String
+  ownerReply String?
+  helpful    Int      @default(0)
+  verified   Boolean  @default(false)
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Inquiry {
+  id         String   @id @default(cuid())
+  name       String
+  email      String
+  phone      String?
+  subject    String?
+  message    String
+  status     String   @default("NEW")
+  repliedAt  DateTime?
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+}
+
+model BusinessAnalytic {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  date       DateTime @default(now())
+  views      Int      @default(0)
+  clicks     Int      @default(0)
+  inquiries  Int      @default(0)
+
+  @@index([businessId, date])
+}
