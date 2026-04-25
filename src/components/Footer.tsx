@@ -41,10 +41,10 @@ export function Footer() {
             <ul className="space-y-2">
               {[
                 { label: "All Businesses", href: "/businesses" },
+                { label: "🏷️ Local Deals", href: "/deals" },
+                { label: "📅 Events", href: "/events" },
                 { label: "Restaurants", href: "/businesses?category=restaurant" },
                 { label: "Health & Wellness", href: "/businesses?category=health" },
-                { label: "Retail & Shopping", href: "/businesses?category=retail" },
-                { label: "Deals & Offers", href: "/deals" },
                 { label: "New Businesses", href: "/businesses?sort=newest" },
               ].map((item) => (
                 <li key={item.href}>

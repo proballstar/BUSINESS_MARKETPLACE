@@ -415,10 +415,178 @@ async function main() {
     });
   }
 
+  // ── Seed Posts: Deals, Events, Updates ──
+  console.log("\n📢 Seeding posts...");
+  const now = new Date();
+  const days = (n: number) => new Date(now.getTime() + n * 86400000);
+
+  const postsData = [
+    {
+      businessIdx: 0, // Golden Spoon
+      type: "DEAL",
+      title: "Weekend Brunch Special — 20% Off",
+      content: "Join us this weekend for our famous farm-to-table brunch. Show this deal when you arrive and enjoy 20% off your total bill. Valid Saturday & Sunday only.",
+      discountText: "20% Off",
+      discountCode: "BRUNCH20",
+      expiresAt: days(7),
+      pinned: true,
+    },
+    {
+      businessIdx: 0,
+      type: "EVENT",
+      title: "Wine Pairing Dinner with Local Vineyard",
+      content: "Join us for an intimate 5-course dinner paired with wines from Willamette Valley's newest boutique vineyard. Our sommelier will guide you through each pairing. Space is strictly limited to 18 guests.",
+      eventDate: days(12),
+      eventEndDate: new Date(days(12).getTime() + 3 * 3600000),
+      eventLocation: "The Golden Spoon Private Dining Room, 142 Oak Street",
+      capacity: 18,
+    },
+    {
+      businessIdx: 0,
+      type: "UPDATE",
+      title: "New Spring Menu Just Launched!",
+      content: "We're thrilled to announce our spring menu featuring the first asparagus of the season, locally foraged morels, and a new strawberry rhubarb dessert. Come taste what Portland's farmers have been growing all winter.",
+      imageUrl: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=800&q=80",
+    },
+    {
+      businessIdx: 1, // Bloom & Glow
+      type: "DEAL",
+      title: "First-Time Visitor Welcome Offer",
+      content: "New to Bloom & Glow? Book any 60-minute service and receive a complimentary aromatherapy upgrade and a take-home product sample kit. No promo code needed — just mention it when you book.",
+      discountText: "Free upgrade",
+      expiresAt: days(30),
+    },
+    {
+      businessIdx: 1,
+      type: "EVENT",
+      title: "Self-Care Sunday: Group Sound Bath",
+      content: "Join our certified sound therapist for a deeply restorative 75-minute sound bath using Tibetan singing bowls. We provide yoga mats and blankets. Recommended for stress, anxiety, and sleep issues. Perfect for beginners.",
+      eventDate: days(5),
+      eventEndDate: new Date(days(5).getTime() + 90 * 60000),
+      eventLocation: "Bloom & Glow Relaxation Suite",
+      capacity: 12,
+    },
+    {
+      businessIdx: 2, // Pedal & Spoke
+      type: "EVENT",
+      title: "Free Bike Maintenance Workshop",
+      content: "Learn how to fix a flat, adjust your brakes, and tune your derailleur. Our head mechanic Tomás covers everything you need to keep your bike running smoothly. Bring your bike! All levels welcome.",
+      eventDate: days(10),
+      eventEndDate: new Date(days(10).getTime() + 2 * 3600000),
+      eventLocation: "Pedal & Spoke Workshop Area, 55 Cycle Way",
+      capacity: 20,
+    },
+    {
+      businessIdx: 2,
+      type: "DEAL",
+      title: "Trade-In Weekend — Double Trade Credit",
+      content: "Bring in your old bike this weekend and receive double trade-in credit toward any new or used bike. We'll find it a new home while you upgrade. No brand requirements.",
+      discountText: "2× Trade Credit",
+      expiresAt: days(4),
+      pinned: true,
+    },
+    {
+      businessIdx: 3, // TechFix Pro
+      type: "DEAL",
+      title: "Screen Repair + Free Battery Check",
+      content: "Get any phone screen repaired and we'll check your battery health for free. If you need a replacement, we'll do it at cost. Same-day service on most models. Walk-ins welcome.",
+      discountText: "Free battery check",
+      expiresAt: days(14),
+    },
+    {
+      businessIdx: 7, // FitLife
+      type: "EVENT",
+      title: "7-Day Free Trial — No Card Required",
+      content: "New to FitLife? Join us for a free week: unlimited classes, full equipment access, and one free session with a personal trainer. No credit card, no commitment. Just come in with your ID.",
+      eventDate: days(1),
+      eventEndDate: days(8),
+      capacity: 30,
+    },
+    {
+      businessIdx: 7,
+      type: "UPDATE",
+      title: "New: Outdoor Boot Camp Every Saturday",
+      content: "Starting this Saturday, Coach Danny runs a free outdoor boot camp at Waterfront Park at 8am. All fitness levels welcome. Meet at the main pavilion. Bring water and a mat.",
+      pinned: true,
+    },
+  ];
+
+  for (const p of postsData) {
+    const business = createdBusinesses[p.businessIdx];
+    if (!business) continue;
+    const { businessIdx, ...postFields } = p;
+    await prisma.businessPost.create({
+      data: {
+        businessId: business.id,
+        type: postFields.type,
+        title: postFields.title,
+        content: postFields.content,
+        discountText: ("discountText" in postFields ? postFields.discountText : null) || null,
+        discountCode: ("discountCode" in postFields ? postFields.discountCode : null) || null,
+        eventDate: ("eventDate" in postFields ? postFields.eventDate : null) || null,
+        eventEndDate: ("eventEndDate" in postFields ? postFields.eventEndDate : null) || null,
+        eventLocation: ("eventLocation" in postFields ? postFields.eventLocation : null) || null,
+        capacity: ("capacity" in postFields ? postFields.capacity : null) || null,
+        expiresAt: ("expiresAt" in postFields ? postFields.expiresAt : null) || null,
+        imageUrl: ("imageUrl" in postFields ? postFields.imageUrl : null) || null,
+        pinned: ("pinned" in postFields && postFields.pinned) || false,
+      },
+    });
+    console.log(`  📢 ${postFields.type}: ${postFields.title}`);
+  }
+
+  // ── Seed Q&A ──
+  console.log("\n❓ Seeding Q&A...");
+  const qaData = [
+    { businessIdx: 0, userId: customer.id, question: "Do you accommodate nut allergies?", answer: "Absolutely! Please let your server know before ordering and our kitchen will flag your dish for allergen protocols. We have nut-free preparation areas." },
+    { businessIdx: 0, userId: customer2.id, question: "Is there parking nearby?", answer: "Yes — there's a free public lot on Oak Street just half a block south of us, plus street parking on Elm. We're also right on the #14 bus line." },
+    { businessIdx: 1, userId: customer.id, question: "Do you offer gift cards?", answer: "We do! Physical and digital gift cards are available in any denomination starting at $25. Perfect for birthdays and special occasions." },
+    { businessIdx: 2, userId: customer2.id, question: "Do you buy used bikes?", answer: "Yes, we do! Bring your bike in for a free assessment and we'll offer a trade-in credit or cash depending on the condition. We love giving bikes a second life." },
+    { businessIdx: 7, userId: customer.id, question: "Do I need to sign up for classes in advance?", answer: "Members can book up to 7 days ahead via our app. Walk-ins are welcome if there's space. Popular classes like Thursday HIIT and Sunday Yoga book up fast, so we recommend reserving ahead." },
+  ];
+
+  for (const q of qaData) {
+    const business = createdBusinesses[q.businessIdx];
+    if (!business) continue;
+    await prisma.question.create({
+      data: { businessId: business.id, userId: q.userId, question: q.question, answer: q.answer, answeredAt: q.answer ? new Date() : null },
+    });
+  }
+
+  // ── Seed Loyalty Programs ──
+  console.log("\n🎁 Seeding loyalty programs...");
+  const loyaltyData = [
+    { businessIdx: 0, rewardName: "Free Dessert of Your Choice", stampsNeeded: 8, description: "Earn 1 stamp with every visit (any purchase)" },
+    { businessIdx: 1, rewardName: "Free 30-Min Massage Upgrade", stampsNeeded: 6, description: "Earn 1 stamp per treatment" },
+    { businessIdx: 2, rewardName: "Free Bike Tune-Up", stampsNeeded: 10, description: "Earn 1 stamp per service or purchase over $20" },
+    { businessIdx: 7, rewardName: "One Free Personal Training Session", stampsNeeded: 10, description: "Earn 1 stamp per class attended" },
+  ];
+
+  for (const l of loyaltyData) {
+    const business = createdBusinesses[l.businessIdx];
+    if (!business) continue;
+    await prisma.loyaltyConfig.upsert({
+      where: { businessId: business.id },
+      update: {},
+      create: { businessId: business.id, rewardName: l.rewardName, stampsNeeded: l.stampsNeeded, description: l.description },
+    });
+    console.log(`  🎁 ${business.name}: ${l.rewardName}`);
+  }
+
+  // Seed a customer loyalty card
+  const goldenSpoon = createdBusinesses[0];
+  if (goldenSpoon) {
+    await prisma.loyaltyCard.upsert({
+      where: { businessId_userId: { businessId: goldenSpoon.id, userId: customer.id } },
+      update: {},
+      create: { businessId: goldenSpoon.id, userId: customer.id, stamps: 5, totalEarned: 5 },
+    });
+  }
+
   console.log("\n✨ Seed complete!");
   console.log("\nDemo accounts:");
   console.log("  Business Owner: owner@demo.com / password123");
-  console.log("  Customer: user@demo.com / password123");
+  console.log("  Customer:       user@demo.com / password123");
 }
 
 main()

@@ -22,6 +22,8 @@ model User {
   reviews       Review[]
   sessions      Session[]
   accounts      Account[]
+  questions     Question[]
+  loyaltyCards  LoyaltyCard[]
 }
 
 model Account {
@@ -71,8 +73,8 @@ model Business {
   logoUrl      String?
 
   hoursJson    String   @default("{}")
-
   socialLinks  String   @default("{}")
+  teamJson     String   @default("[]")
 
   priceRange   String?
   yearFounded  Int?
@@ -94,9 +96,109 @@ model Business {
   reviews      Review[]
   inquiries    Inquiry[]
   analytics    BusinessAnalytic[]
+  posts        BusinessPost[]
+  questions    Question[]
+  loyaltyCards LoyaltyCard[]
+  loyaltyConfig LoyaltyConfig?
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// Deals, Events, and Owner Updates — the authenticity feed
+model BusinessPost {
+  id          String    @id @default(cuid())
+  type        String    // "UPDATE" | "DEAL" | "EVENT"
+  title       String
+  content     String
+  imageUrl    String?
+
+  // Deal fields
+  discountText  String?   // "20% off", "Buy 1 get 1"
+  discountCode  String?
+  originalPrice String?
+  salePrice     String?
+
+  // Event fields
+  eventDate     DateTime?
+  eventEndDate  DateTime?
+  eventLocation String?   // can differ from business address
+  capacity      Int?
+  rsvpCount     Int       @default(0)
+  rsvpUrl       String?
+
+  // Lifecycle
+  expiresAt   DateTime?
+  active      Boolean   @default(true)
+  pinned      Boolean   @default(false)
+
+  businessId  String
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  rsvps       PostRsvp[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model PostRsvp {
+  id     String @id @default(cuid())
+  postId String
+  post   BusinessPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  name   String
+  email  String
+  createdAt DateTime @default(now())
+
+  @@unique([postId, email])
+}
+
+// Q&A — owner expertise on full public display
+model Question {
+  id         String    @id @default(cuid())
+  question   String
+  answer     String?
+  answeredAt DateTime?
+  helpful    Int       @default(0)
+
+  businessId String
+  business   Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+
+  createdAt  DateTime  @default(now())
+}
+
+// Digital Loyalty Cards — what chains have enterprise software for, small biz gets free
+model LoyaltyConfig {
+  id           String   @id @default(cuid())
+  businessId   String   @unique
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  rewardName   String   // "Free Coffee"
+  stampsNeeded Int      @default(10)
+  description  String?  // "Earn 1 stamp per visit"
+  active       Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model LoyaltyCard {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  stamps      Int      @default(0)
+  totalEarned Int      @default(0)
+  rewardsClaimed Int   @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([businessId, userId])
 }
 
 model Review {

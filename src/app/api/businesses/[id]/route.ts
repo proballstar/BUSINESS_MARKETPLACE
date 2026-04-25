@@ -27,7 +27,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   try {
     const data = await req.json();
-    const { name, description, category, address, city, state, zip, phone, email, website, images, hoursJson, socialLinks, tags, priceRange, yearFounded, employeeCount, tagline, subcategory, active } = data;
+    const { name, description, category, address, city, state, zip, phone, email, website, images, hoursJson, socialLinks, tags, teamJson, priceRange, yearFounded, employeeCount, tagline, subcategory, active } = data;
 
     const updated = await prisma.business.update({
       where: { id: params.id },
@@ -48,6 +48,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         hoursJson: hoursJson !== undefined ? JSON.stringify(hoursJson) : business.hoursJson,
         socialLinks: socialLinks !== undefined ? JSON.stringify(socialLinks) : business.socialLinks,
         tags: tags !== undefined ? JSON.stringify(tags) : business.tags,
+        teamJson: teamJson !== undefined ? JSON.stringify(teamJson) : business.teamJson,
         priceRange: priceRange !== undefined ? priceRange : business.priceRange,
         yearFounded: yearFounded !== undefined ? (yearFounded ? parseInt(yearFounded) : null) : business.yearFounded,
         employeeCount: employeeCount !== undefined ? employeeCount : business.employeeCount,

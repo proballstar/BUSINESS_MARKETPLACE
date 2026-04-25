@@ -18,6 +18,7 @@ const DEFAULT_HOURS = Object.fromEntries(
 );
 
 interface HoursEntry { open: string; close: string; closed: boolean }
+interface TeamMember { name: string; role: string; bio: string; imageUrl: string }
 
 function EditBusinessForm() {
   const { data: session, status } = useSession();
@@ -25,7 +26,7 @@ function EditBusinessForm() {
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
 
-  const [activeTab, setActiveTab] = useState<"basic" | "contact" | "hours" | "media" | "social">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "contact" | "hours" | "media" | "team" | "social">("basic");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -38,9 +39,11 @@ function EditBusinessForm() {
     phone: "", email: "", website: "",
     tags: [] as string[],
     images: [] as string[],
+    team: [] as TeamMember[],
     socialLinks: { facebook: "", instagram: "", twitter: "", linkedin: "" },
     hoursJson: DEFAULT_HOURS as Record<string, HoursEntry>,
   });
+  const [newMember, setNewMember] = useState<TeamMember>({ name: "", role: "", bio: "", imageUrl: "" });
 
   const [newTag, setNewTag] = useState("");
   const [newImage, setNewImage] = useState("");
@@ -69,6 +72,7 @@ function EditBusinessForm() {
           website: b.website || "",
           tags: JSON.parse(b.tags || "[]"),
           images: JSON.parse(b.images || "[]"),
+          team: JSON.parse(b.teamJson || "[]"),
           socialLinks: { facebook: "", instagram: "", twitter: "", linkedin: "", ...JSON.parse(b.socialLinks || "{}") },
           hoursJson: { ...DEFAULT_HOURS, ...JSON.parse(b.hoursJson || "{}") },
         });
@@ -134,7 +138,7 @@ function EditBusinessForm() {
     setError("");
     setSaving(true);
     try {
-      const payload = { ...form, hoursJson: form.hoursJson, socialLinks: form.socialLinks };
+      const payload = { ...form, hoursJson: form.hoursJson, socialLinks: form.socialLinks, teamJson: form.team };
       const url = editId ? `/api/businesses/${editId}` : "/api/businesses";
       const method = editId ? "PUT" : "POST";
       const res = await fetch(url, {
@@ -162,11 +166,22 @@ function EditBusinessForm() {
     );
   }
 
+  const addTeamMember = () => {
+    if (!newMember.name.trim() || !newMember.role.trim()) return;
+    setForm((prev) => ({ ...prev, team: [...prev.team, { ...newMember }] }));
+    setNewMember({ name: "", role: "", bio: "", imageUrl: "" });
+  };
+
+  const removeTeamMember = (i: number) => {
+    setForm((prev) => ({ ...prev, team: prev.team.filter((_, idx) => idx !== i) }));
+  };
+
   const tabs = [
     { id: "basic", label: "Basic Info" },
     { id: "contact", label: "Contact & Location" },
     { id: "hours", label: "Hours" },
     { id: "media", label: "Photos & Tags" },
+    { id: "team", label: "Meet the Team" },
     { id: "social", label: "Social Links" },
   ] as const;
 
@@ -352,6 +367,68 @@ function EditBusinessForm() {
                     </span>
                   ))}
                 </div>
+              </div>
+            </>
+          )}
+
+          {/* Meet the Team */}
+          {activeTab === "team" && (
+            <>
+              <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 mb-4">
+                <p className="text-sm text-brand-800 font-medium">👥 Show the real people behind your business</p>
+                <p className="text-xs text-brand-600 mt-1">Customers connect more with businesses when they can see who they&apos;re dealing with. Large chains can&apos;t do this authentically — you can.</p>
+              </div>
+
+              {/* Existing members */}
+              {form.team.length > 0 && (
+                <div className="space-y-3 mb-4">
+                  {form.team.map((member, i) => (
+                    <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                      <div className="w-10 h-10 rounded-full bg-brand-600 text-white font-bold flex items-center justify-center flex-shrink-0 text-sm">
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">{member.name}</p>
+                        <p className="text-xs text-brand-600">{member.role}</p>
+                        {member.bio && <p className="text-xs text-gray-500 truncate">{member.bio}</p>}
+                      </div>
+                      <button type="button" onClick={() => removeTeamMember(i)} className="text-red-400 hover:text-red-600 flex-shrink-0">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add new member */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                <h5 className="text-sm font-semibold text-gray-900">Add Team Member</h5>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
+                    <input value={newMember.name} onChange={(e) => setNewMember((m) => ({ ...m, name: e.target.value }))} placeholder="Jane Smith" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Role *</label>
+                    <input value={newMember.role} onChange={(e) => setNewMember((m) => ({ ...m, role: e.target.value }))} placeholder="Head Chef, Owner, etc." className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Short Bio</label>
+                  <input value={newMember.bio} onChange={(e) => setNewMember((m) => ({ ...m, bio: e.target.value }))} placeholder="10 years of experience, passionate about..." className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Photo URL</label>
+                  <input value={newMember.imageUrl} onChange={(e) => setNewMember((m) => ({ ...m, imageUrl: e.target.value }))} placeholder="https://..." className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                </div>
+                <button
+                  type="button"
+                  onClick={addTeamMember}
+                  disabled={!newMember.name.trim() || !newMember.role.trim()}
+                  className="flex items-center gap-2 bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-40 transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Add Member
+                </button>
               </div>
             </>
           )}

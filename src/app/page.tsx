@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { BadgeCheck, TrendingUp, Star, Users, Store, Zap, Search, Heart, Gift, MessageSquare, ArrowRight, Sparkles } from "lucide-react";
+import { BadgeCheck, TrendingUp, Star, Users, Store, Zap, Search, Heart, Gift, MessageSquare, ArrowRight, Sparkles, Tag, Calendar, Clock } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { CATEGORIES } from "@/lib/utils";
 import { SearchBar } from "@/components/SearchBar";
@@ -36,11 +36,31 @@ async function getStats() {
   return { businessCount, reviewCount, userCount };
 }
 
+async function getActiveDeals() {
+  return prisma.businessPost.findMany({
+    where: { type: "DEAL", active: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    include: { business: { select: { name: true, slug: true, city: true, state: true, images: true, verified: true } } },
+    orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
+    take: 4,
+  });
+}
+
+async function getUpcomingEvents() {
+  return prisma.businessPost.findMany({
+    where: { type: "EVENT", active: true, OR: [{ eventDate: null }, { eventDate: { gte: new Date() } }] },
+    include: { business: { select: { name: true, slug: true, city: true, state: true, images: true } } },
+    orderBy: { eventDate: "asc" },
+    take: 3,
+  });
+}
+
 export default async function HomePage() {
-  const [featured, topRated, stats] = await Promise.all([
+  const [featured, topRated, stats, deals, events] = await Promise.all([
     getFeaturedBusinesses(),
     getTopRated(),
     getStats(),
+    getActiveDeals(),
+    getUpcomingEvents(),
   ]);
 
   return (
@@ -201,6 +221,104 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── Active Local Deals ── */}
+      {deals.length > 0 && (
+        <section className="bg-gradient-to-br from-rose-50 to-orange-50 py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
+                  <span className="text-xs font-bold text-rose-600 uppercase tracking-widest">Live Right Now</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">🏷️ Local Deals & Offers</h2>
+                <p className="text-gray-500 mt-1">Flash deals direct from business owners — no corporate approval required</p>
+              </div>
+              <Link href="/deals" className="hidden sm:flex items-center gap-1 text-rose-600 font-medium hover:text-rose-700 text-sm">
+                All deals <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {deals.map((deal) => {
+                const imgs: string[] = JSON.parse(deal.business.images || "[]");
+                const expMs = deal.expiresAt ? new Date(deal.expiresAt).getTime() - Date.now() : null;
+                const expH = expMs ? Math.floor(expMs / 3600000) : null;
+                return (
+                  <Link key={deal.id} href={`/businesses/${deal.business.slug}`} className="group bg-white rounded-xl border border-rose-200 overflow-hidden hover:shadow-md hover:border-rose-300 transition-all">
+                    <div className="relative h-32 bg-rose-100 overflow-hidden">
+                      {imgs[0] && <Image src={imgs[0]} alt={deal.title} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />}
+                      {deal.discountText && (
+                        <div className="absolute top-2 left-2 bg-rose-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{deal.discountText}</div>
+                      )}
+                      {expH !== null && expH < 24 && (
+                        <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {expH}h left
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="font-semibold text-gray-900 text-sm truncate">{deal.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{deal.business.name} · {deal.business.city}</p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="text-center mt-6 sm:hidden">
+              <Link href="/deals" className="text-sm text-rose-600 font-medium hover:underline">See all deals →</Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Upcoming Events ── */}
+      {events.length > 0 && (
+        <section className="bg-white py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">📅 Upcoming Local Events</h2>
+                <p className="text-gray-500 mt-1">Workshops, tastings, classes & pop-ups from your community</p>
+              </div>
+              <Link href="/events" className="hidden sm:flex items-center gap-1 text-violet-600 font-medium hover:text-violet-700 text-sm">
+                All events <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              {events.map((event) => {
+                const imgs: string[] = JSON.parse(event.business.images || "[]");
+                return (
+                  <Link key={event.id} href={`/businesses/${event.business.slug}`} className="group bg-gradient-to-br from-violet-50 to-indigo-50 rounded-xl border border-violet-200 p-4 hover:shadow-md hover:border-violet-300 transition-all">
+                    <div className="flex items-start gap-3">
+                      {event.eventDate && (
+                        <div className="bg-white rounded-xl overflow-hidden shadow-sm text-center w-12 flex-shrink-0">
+                          <div className="bg-violet-600 text-white text-xs font-bold py-0.5">
+                            {new Date(event.eventDate).toLocaleString("en-US", { month: "short" }).toUpperCase()}
+                          </div>
+                          <div className="text-gray-900 font-extrabold text-lg py-1">
+                            {new Date(event.eventDate).getDate()}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm leading-snug">{event.title}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{event.business.name}</p>
+                        {event.eventDate && (
+                          <p className="text-xs text-violet-600 mt-1 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {new Date(event.eventDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Featured Businesses ── */}
       {featured.length > 0 && (

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const data = await req.json();
-    const { name, description, category, address, city, state, zip, phone, email, website, images, hoursJson, socialLinks, tags, priceRange, yearFounded, employeeCount, tagline, subcategory } = data;
+    const { name, description, category, address, city, state, zip, phone, email, website, images, hoursJson, socialLinks, tags, teamJson, priceRange, yearFounded, employeeCount, tagline, subcategory } = data;
 
     if (!name || !description || !category || !address || !city || !state) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
         hoursJson: JSON.stringify(hoursJson || {}),
         socialLinks: JSON.stringify(socialLinks || {}),
         tags: JSON.stringify(tags || []),
+        teamJson: JSON.stringify(teamJson || []),
         priceRange: priceRange || null,
         yearFounded: yearFounded ? parseInt(yearFounded) : null,
         employeeCount: employeeCount || null,

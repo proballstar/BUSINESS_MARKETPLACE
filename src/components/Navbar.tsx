@@ -28,16 +28,17 @@ export function Navbar() {
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/businesses" className="text-sm font-medium text-gray-600 hover:text-brand-600 transition-colors">
-              Browse Businesses
+              Businesses
+            </Link>
+            <Link href="/deals" className="text-sm font-medium text-gray-600 hover:text-rose-600 transition-colors flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />
+              Deals
+            </Link>
+            <Link href="/events" className="text-sm font-medium text-gray-600 hover:text-violet-600 transition-colors">
+              Events
             </Link>
             <Link href="/businesses?category=restaurant" className="text-sm font-medium text-gray-600 hover:text-brand-600 transition-colors">
               Restaurants
-            </Link>
-            <Link href="/businesses?category=retail" className="text-sm font-medium text-gray-600 hover:text-brand-600 transition-colors">
-              Retail
-            </Link>
-            <Link href="/businesses?category=health" className="text-sm font-medium text-gray-600 hover:text-brand-600 transition-colors">
-              Health
             </Link>
           </nav>
 
@@ -108,8 +109,9 @@ export function Navbar() {
       {mobileOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-3">
           <Link href="/businesses" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-gray-700 py-1">Browse Businesses</Link>
+          <Link href="/deals" onClick={() => setMobileOpen(false)} className="block text-sm text-rose-600 font-medium py-1">🏷️ Local Deals</Link>
+          <Link href="/events" onClick={() => setMobileOpen(false)} className="block text-sm text-violet-600 font-medium py-1">📅 Events</Link>
           <Link href="/businesses?category=restaurant" onClick={() => setMobileOpen(false)} className="block text-sm text-gray-600 py-1">Restaurants</Link>
-          <Link href="/businesses?category=retail" onClick={() => setMobileOpen(false)} className="block text-sm text-gray-600 py-1">Retail</Link>
           <hr className="border-gray-100" />
           {session ? (
             <>
