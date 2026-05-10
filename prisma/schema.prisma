@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -42,6 +43,7 @@ model Account {
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -50,6 +52,8 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Business {
@@ -103,6 +107,9 @@ model Business {
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([active, category, city])
 }
 
 // Deals, Events, and Owner Updates — the authenticity feed
@@ -139,6 +146,9 @@ model BusinessPost {
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([businessId])
+  @@index([type, active, eventDate])
 }
 
 model PostRsvp {
@@ -150,6 +160,7 @@ model PostRsvp {
   createdAt DateTime @default(now())
 
   @@unique([postId, email])
+  @@index([postId])
 }
 
 // Q&A — owner expertise on full public display
@@ -167,6 +178,9 @@ model Question {
   user       User      @relation(fields: [userId], references: [id])
 
   createdAt  DateTime  @default(now())
+
+  @@index([businessId])
+  @@index([userId])
 }
 
 // Digital Loyalty Cards — what chains have enterprise software for, small biz gets free
@@ -199,6 +213,7 @@ model LoyaltyCard {
   updatedAt   DateTime @updatedAt
 
   @@unique([businessId, userId])
+  @@index([userId])
 }
 
 model Review {
@@ -218,6 +233,9 @@ model Review {
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([userId])
 }
 
 model Inquiry {
@@ -234,6 +252,9 @@ model Inquiry {
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   createdAt  DateTime @default(now())
+
+  @@index([businessId])
+  @@index([status])
 }
 
 model BusinessAnalytic {
