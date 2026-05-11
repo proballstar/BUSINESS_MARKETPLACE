@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { Calendar, MapPin, Users, Clock, BadgeCheck, ArrowRight, Ticket } from "lucide-react";
 import { CATEGORIES } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 interface EventPost {
   id: string;
   title: string;

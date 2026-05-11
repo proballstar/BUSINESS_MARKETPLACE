@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { Tag, Clock, BadgeCheck, ArrowRight, Zap } from "lucide-react";
 import { CATEGORIES } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 interface PostWithBusiness {
   id: string;
   type: string;

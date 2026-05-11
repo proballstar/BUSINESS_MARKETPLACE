@@ -7,6 +7,8 @@ import { SearchBar } from "@/components/SearchBar";
 import { BusinessCard } from "@/components/BusinessCard";
 import type { BusinessWithStats } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 async function getFeaturedBusinesses(): Promise<BusinessWithStats[]> {
   const businesses = await prisma.business.findMany({
     where: { active: true, featured: true },
