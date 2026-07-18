@@ -11,9 +11,10 @@ import { ContactForm } from "@/components/ContactForm";
 import { BusinessFeed } from "@/components/BusinessFeed";
 import { LoyaltyWidget } from "@/components/LoyaltyCard";
 import { QandASection } from "@/components/QandA";
+import { ReportButton } from "@/components/ReportButton";
 import {
   MapPin, Phone, Globe, Mail, Clock, BadgeCheck, Sparkles,
-  Facebook, Instagram, Twitter, Linkedin, ExternalLink, Share2,
+  Facebook, Instagram, Twitter, Linkedin, ExternalLink,
   Users, Eye, Calendar, ChevronRight, Tag, Star, Gift, HelpCircle, Megaphone,
 } from "lucide-react";
 import type { BusinessWithStats } from "@/types";
@@ -233,11 +234,9 @@ export default async function BusinessProfilePage({ params }: { params: { slug: 
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 flex-wrap">
                   {isOwner && <Link href={`/dashboard/edit?id=${business.id}`} className="flex items-center gap-1.5 px-3 py-2 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors">Edit Listing</Link>}
-                  <button className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:border-brand-300 transition-colors">
-                    <Share2 className="w-4 h-4" /> Share
-                  </button>
+                  {!isOwner && <ReportButton targetType="BUSINESS" targetId={business.id} label="Report listing" />}
                 </div>
               </div>
 

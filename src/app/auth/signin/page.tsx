@@ -71,10 +71,7 @@ function SignInForm() {
             </div>
 
             <div>
-              <div className="flex justify-between mb-1">
-                <label className="text-sm font-medium text-gray-700">Password</label>
-                <Link href="/auth/forgot" className="text-xs text-brand-600 hover:underline">Forgot password?</Link>
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input

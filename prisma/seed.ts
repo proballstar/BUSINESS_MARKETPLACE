@@ -70,6 +70,13 @@ async function main() {
     create: { name: "Mike Torres", email: "mike@demo.com", password, role: "CUSTOMER" },
   });
 
+  // Platform admin
+  await prisma.user.upsert({
+    where: { email: "admin@demo.com" },
+    update: {},
+    create: { name: "Admin", email: "admin@demo.com", password, role: "ADMIN" },
+  });
+
   const businesses = [
     {
       name: "The Golden Spoon Bistro",

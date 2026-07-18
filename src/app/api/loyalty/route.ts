@@ -1,44 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { loyaltyConfigSchema, parseBody } from "@/lib/validation";
+import { getSessionUser, requireUser, requireBusinessOwner } from "@/lib/api-auth";
 
-// GET /api/loyalty?businessId=... — get customer's card or business config
+// GET /api/loyalty?businessId=... — public loyalty config; signed-in users also get their own card.
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const businessId = searchParams.get("businessId");
-  const configOnly = searchParams.get("config") === "true";
-  const session = await getServerSession(authOptions);
-
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
   const config = await prisma.loyaltyConfig.findUnique({ where: { businessId } });
 
-  if (configOnly || !session?.user) return NextResponse.json({ config });
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ config });
 
-  const userId = (session.user as { id?: string }).id!;
-  const card = await prisma.loyaltyCard.findUnique({ where: { businessId_userId: { businessId, userId } } });
+  const card = await prisma.loyaltyCard.findUnique({
+    where: { businessId_userId: { businessId, userId: user.id } },
+  });
   return NextResponse.json({ config, card });
 }
 
-// POST /api/loyalty — create or update loyalty config (owner)
+// POST /api/loyalty — owner creates/updates their program
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id?: string }).id!;
+  const auth = await requireUser();
+  if (auth.response) return auth.response;
 
-  const { businessId, rewardName, stampsNeeded, description } = await req.json();
-  if (!businessId || !rewardName || !stampsNeeded) {
-    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
+  const parsed = parseBody(loyaltyConfigSchema, body);
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  const { businessId, rewardName, stampsNeeded, description } = parsed.data;
 
-  const business = await prisma.business.findUnique({ where: { id: businessId } });
-  if (!business || business.ownerId !== userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const ownership = await requireBusinessOwner(auth.user, businessId);
+  if (ownership.response) return ownership.response;
 
   const config = await prisma.loyaltyConfig.upsert({
     where: { businessId },
-    update: { rewardName, stampsNeeded: parseInt(stampsNeeded), description: description || null, active: true },
-    create: { businessId, rewardName, stampsNeeded: parseInt(stampsNeeded), description: description || null },
+    update: { rewardName, stampsNeeded, description: description || null, active: true },
+    create: { businessId, rewardName, stampsNeeded, description: description || null },
   });
   return NextResponse.json(config);
 }

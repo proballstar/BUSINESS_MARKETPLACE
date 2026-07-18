@@ -1,34 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { postSchema, parseBody } from "@/lib/validation";
+import { requireUser, requireBusinessOwner } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const businessId = searchParams.get("businessId");
-  const type = searchParams.get("type"); // "DEAL" | "EVENT" | "UPDATE"
+  const type = searchParams.get("type");
   const active = searchParams.get("active");
   const city = searchParams.get("city");
-  const limit = parseInt(searchParams.get("limit") || "20");
+  const limit = Math.min(parseInt(searchParams.get("limit") || "20") || 20, 50);
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { business: { active: true, ...(city ? { city: { contains: city } } : {}) } };
   if (businessId) where.businessId = businessId;
-  if (type) where.type = type;
+  if (type && ["DEAL", "EVENT", "UPDATE"].includes(type)) where.type = type;
   if (active === "true") {
     where.active = true;
     where.OR = [{ expiresAt: null }, { expiresAt: { gt: new Date() } }];
   }
 
   const posts = await prisma.businessPost.findMany({
-    where: {
-      ...where,
-      business: city ? { city: { contains: city } } : undefined,
-    },
+    where,
     include: {
       business: {
         select: { name: true, slug: true, city: true, state: true, category: true, images: true, verified: true },
       },
-      _count: { select: { rsvps: true } },
     },
     orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
     take: limit,
@@ -38,39 +34,40 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id?: string }).id!;
+  const auth = await requireUser();
+  if (auth.response) return auth.response;
 
-  const data = await req.json();
-  const { businessId, type, title, content, imageUrl, discountText, discountCode,
-    originalPrice, salePrice, eventDate, eventEndDate, eventLocation,
-    capacity, rsvpUrl, expiresAt, pinned } = data;
-
-  if (!businessId || !type || !title || !content) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
+  const parsed = parseBody(postSchema, body);
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  const d = parsed.data;
 
-  const business = await prisma.business.findUnique({ where: { id: businessId } });
-  if (!business || business.ownerId !== userId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const ownership = await requireBusinessOwner(auth.user, d.businessId);
+  if (ownership.response) return ownership.response;
 
   const post = await prisma.businessPost.create({
     data: {
-      businessId, type, title, content,
-      imageUrl: imageUrl || null,
-      discountText: discountText || null,
-      discountCode: discountCode || null,
-      originalPrice: originalPrice || null,
-      salePrice: salePrice || null,
-      eventDate: eventDate ? new Date(eventDate) : null,
-      eventEndDate: eventEndDate ? new Date(eventEndDate) : null,
-      eventLocation: eventLocation || null,
-      capacity: capacity ? parseInt(capacity) : null,
-      rsvpUrl: rsvpUrl || null,
-      expiresAt: expiresAt ? new Date(expiresAt) : null,
-      pinned: pinned || false,
+      businessId: d.businessId,
+      type: d.type,
+      title: d.title,
+      content: d.content,
+      imageUrl: d.imageUrl || null,
+      discountText: d.discountText || null,
+      discountCode: d.discountCode || null,
+      originalPrice: d.originalPrice || null,
+      salePrice: d.salePrice || null,
+      eventDate: d.eventDate ? new Date(d.eventDate) : null,
+      eventEndDate: d.eventEndDate ? new Date(d.eventEndDate) : null,
+      eventLocation: d.eventLocation || null,
+      capacity: d.capacity ?? null,
+      rsvpUrl: d.rsvpUrl || null,
+      expiresAt: d.expiresAt ? new Date(d.expiresAt) : null,
+      pinned: d.pinned || false,
     },
     include: { business: { select: { name: true, slug: true, city: true, state: true } } },
   });

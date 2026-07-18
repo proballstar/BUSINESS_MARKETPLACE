@@ -4,9 +4,13 @@ import Image from "next/image";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { BadgeCheck, Eye, Star, MessageSquare, TrendingUp, Plus, Edit, ExternalLink, Sparkles, Tag, Calendar, Megaphone, Gift, HelpCircle } from "lucide-react";
+import { BadgeCheck, Eye, Star, MessageSquare, TrendingUp, Plus, Edit, ExternalLink, Sparkles, Inbox, Megaphone, Gift, HelpCircle } from "lucide-react";
 import { PostManager } from "@/components/PostManager";
 import { LoyaltyManager } from "@/components/LoyaltyManager";
+import { InquiryManager, type InquiryItem } from "@/components/InquiryManager";
+import { PublishToggle } from "@/components/PublishToggle";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -26,6 +30,7 @@ export default async function DashboardPage() {
       loyaltyConfig: true,
       loyaltyCards: { select: { id: true } },
       questions: { where: { answer: null }, select: { id: true, question: true, createdAt: true, user: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 5 },
+      inquiries: { orderBy: { createdAt: "desc" }, take: 100 },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -106,8 +111,9 @@ export default async function DashboardPage() {
                             <span className="text-gray-500">({business.reviewCount} reviews)</span>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <Link href={`/businesses/${business.slug}`} target="_blank" className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:border-brand-300 text-gray-600 transition-colors"><ExternalLink className="w-3.5 h-3.5" /> View</Link>
+                          <PublishToggle businessId={business.id} initialActive={business.active} />
                           <Link href={`/dashboard/edit?id=${business.id}`} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"><Edit className="w-3.5 h-3.5" /> Edit</Link>
                         </div>
                       </div>
@@ -140,6 +146,25 @@ export default async function DashboardPage() {
                     </div>
                   )}
 
+                  {/* Inquiry lead management */}
+                  <div className="border-t border-gray-100 p-5">
+                    <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <Inbox className="w-4 h-4 text-brand-600" /> Customer Inquiries
+                      {business.inquiries.filter((i) => i.status === "NEW").length > 0 && (
+                        <span className="text-xs bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">
+                          {business.inquiries.filter((i) => i.status === "NEW").length} new
+                        </span>
+                      )}
+                    </h4>
+                    <InquiryManager
+                      businessName={business.name}
+                      initialInquiries={business.inquiries.map((i) => ({
+                        ...i,
+                        createdAt: i.createdAt.toISOString(),
+                      })) as InquiryItem[]}
+                    />
+                  </div>
+
                   {/* Posts manager */}
                   <div className="border-t border-gray-100">
                     <div className="p-5">
@@ -169,16 +194,6 @@ export default async function DashboardPage() {
               );
             })}
 
-            {/* Upgrade CTA */}
-            <div className="bg-gradient-to-r from-brand-600 to-brand-800 rounded-2xl p-6 text-white">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-bold text-lg flex items-center gap-2"><Sparkles className="w-5 h-5 text-accent-400" /> Upgrade to Featured</h3>
-                  <p className="text-brand-100 text-sm mt-1">Appear at the top of search results, on the homepage, and get a featured badge. 5× more visibility.</p>
-                </div>
-                <Link href="/premium" className="flex-shrink-0 bg-accent-400 text-gray-900 font-bold px-6 py-2.5 rounded-xl hover:bg-accent-500 transition-colors text-sm">Learn More</Link>
-              </div>
-            </div>
           </>
         )}
       </div>

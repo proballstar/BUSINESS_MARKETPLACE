@@ -1,13 +1,76 @@
 "use client";
 
-import { useState } from "react";
-import { Gift, Users, CheckCircle, Star } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Gift, CheckCircle, Star, Ticket } from "lucide-react";
 
 interface LoyaltyConfig {
   rewardName: string;
   stampsNeeded: number;
   description: string | null;
   active: boolean;
+}
+
+function StampCodeGenerator({ businessId }: { businessId: string }) {
+  const [code, setCode] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    if (!expiresAt) return;
+    const tick = () => setSecondsLeft(Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000)));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+
+  const generate = async () => {
+    setLoading(true);
+    setErr("");
+    const res = await fetch("/api/loyalty/codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setCode(data.code);
+      setExpiresAt(new Date(data.expiresAt));
+    } else {
+      setErr(data.error || "Failed to generate code");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="bg-white border border-brand-200 rounded-xl p-4">
+      <h5 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-1">
+        <Ticket className="w-4 h-4 text-brand-600" /> Stamp Codes
+      </h5>
+      <p className="text-xs text-gray-500 mb-3">
+        Generate a one-time code and read it out (or show it) to the customer at checkout. They enter it on your profile page to collect their stamp. Codes expire in 15 minutes.
+      </p>
+      {code && secondsLeft > 0 ? (
+        <div className="flex items-center gap-3">
+          <div className="text-2xl font-mono font-extrabold tracking-[0.3em] bg-brand-50 border-2 border-dashed border-brand-300 rounded-xl px-4 py-2 text-brand-800">
+            {code}
+          </div>
+          <div className="text-xs text-gray-500">
+            expires in <span className="font-semibold text-gray-800">{Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, "0")}</span>
+          </div>
+        </div>
+      ) : null}
+      {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
+      <button
+        onClick={generate}
+        disabled={loading}
+        className="mt-3 text-xs bg-brand-600 text-white px-3 py-2 rounded-lg font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
+      >
+        {loading ? "Generating..." : code && secondsLeft > 0 ? "Generate Another Code" : "Generate Stamp Code"}
+      </button>
+    </div>
+  );
 }
 
 export function LoyaltyManager({
@@ -74,10 +137,12 @@ export function LoyaltyManager({
           ))}
           {config.stampsNeeded > 12 && <span className="text-xs text-gray-400 self-center">+{config.stampsNeeded - 12} more</span>}
         </div>
-        <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-4">
           <CheckCircle className="w-4 h-4 flex-shrink-0" />
-          Program is active — customers can earn stamps on your profile page
+          Program is active — hand customers a stamp code below when they visit
         </div>
+
+        <StampCodeGenerator businessId={businessId} />
       </div>
     );
   }

@@ -1,77 +1,80 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { businessSchema, parseBody } from "@/lib/validation";
+import { getSessionUser, requireUser, isAdmin } from "@/lib/api-auth";
 
+// Public for active listings; owner/admin can also fetch unpublished ones.
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const business = await prisma.business.findUnique({
-    where: { id: params.id },
-    include: { owner: { select: { name: true, email: true } } },
-  });
+  const business = await prisma.business.findUnique({ where: { id: params.id } });
   if (!business) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if (!business.active) {
+    const user = await getSessionUser();
+    if (!user || (business.ownerId !== user.id && !isAdmin(user))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+  }
   return NextResponse.json(business);
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireUser();
+  if (auth.response) return auth.response;
 
-  const userId = (session.user as { id?: string }).id;
   const business = await prisma.business.findUnique({ where: { id: params.id } });
   if (!business) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const userRole = (session.user as { role?: string }).role;
-  if (business.ownerId !== userId && userRole !== "ADMIN") {
+  if (business.ownerId !== auth.user.id && !isAdmin(auth.user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  let body: unknown;
   try {
-    const data = await req.json();
-    const { name, description, category, address, city, state, zip, phone, email, website, images, hoursJson, socialLinks, tags, teamJson, priceRange, yearFounded, employeeCount, tagline, subcategory, active } = data;
-
-    const updated = await prisma.business.update({
-      where: { id: params.id },
-      data: {
-        name: name ?? business.name,
-        tagline: tagline !== undefined ? tagline : business.tagline,
-        description: description ?? business.description,
-        category: category ?? business.category,
-        subcategory: subcategory !== undefined ? subcategory : business.subcategory,
-        address: address ?? business.address,
-        city: city ?? business.city,
-        state: state ?? business.state,
-        zip: zip ?? business.zip,
-        phone: phone !== undefined ? phone : business.phone,
-        email: email !== undefined ? email : business.email,
-        website: website !== undefined ? website : business.website,
-        images: images !== undefined ? JSON.stringify(images) : business.images,
-        hoursJson: hoursJson !== undefined ? JSON.stringify(hoursJson) : business.hoursJson,
-        socialLinks: socialLinks !== undefined ? JSON.stringify(socialLinks) : business.socialLinks,
-        tags: tags !== undefined ? JSON.stringify(tags) : business.tags,
-        teamJson: teamJson !== undefined ? JSON.stringify(teamJson) : business.teamJson,
-        priceRange: priceRange !== undefined ? priceRange : business.priceRange,
-        yearFounded: yearFounded !== undefined ? (yearFounded ? parseInt(yearFounded) : null) : business.yearFounded,
-        employeeCount: employeeCount !== undefined ? employeeCount : business.employeeCount,
-        active: active !== undefined ? active : business.active,
-      },
-    });
-
-    return NextResponse.json(updated);
+    body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Update failed" }, { status: 500 });
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
+  const parsed = parseBody(businessSchema.partial(), body);
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  const d = parsed.data;
+
+  const updated = await prisma.business.update({
+    where: { id: params.id },
+    data: {
+      name: d.name ?? business.name,
+      tagline: d.tagline !== undefined ? d.tagline || null : business.tagline,
+      description: d.description ?? business.description,
+      category: d.category ?? business.category,
+      subcategory: d.subcategory !== undefined ? d.subcategory || null : business.subcategory,
+      address: d.address ?? business.address,
+      city: d.city ?? business.city,
+      state: d.state ?? business.state,
+      zip: d.zip ?? business.zip,
+      phone: d.phone !== undefined ? d.phone || null : business.phone,
+      email: d.email !== undefined ? d.email || null : business.email,
+      website: d.website !== undefined ? d.website || null : business.website,
+      images: d.images !== undefined ? JSON.stringify(d.images) : business.images,
+      hoursJson: d.hoursJson !== undefined ? JSON.stringify(d.hoursJson) : business.hoursJson,
+      socialLinks: d.socialLinks !== undefined ? JSON.stringify(d.socialLinks) : business.socialLinks,
+      tags: d.tags !== undefined ? JSON.stringify(d.tags) : business.tags,
+      teamJson: d.teamJson !== undefined ? JSON.stringify(d.teamJson) : business.teamJson,
+      priceRange: d.priceRange !== undefined ? d.priceRange || null : business.priceRange,
+      yearFounded: d.yearFounded !== undefined ? d.yearFounded ?? null : business.yearFounded,
+      employeeCount: d.employeeCount !== undefined ? d.employeeCount || null : business.employeeCount,
+      active: d.active !== undefined ? d.active : business.active,
+    },
+  });
+
+  return NextResponse.json(updated);
 }
 
+// Unpublish (soft delete)
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireUser();
+  if (auth.response) return auth.response;
 
-  const userId = (session.user as { id?: string }).id;
   const business = await prisma.business.findUnique({ where: { id: params.id } });
   if (!business) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const userRole = (session.user as { role?: string }).role;
-  if (business.ownerId !== userId && userRole !== "ADMIN") {
+  if (business.ownerId !== auth.user.id && !isAdmin(auth.user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -27,7 +27,9 @@ interface LoyaltyWidgetProps {
 export function LoyaltyWidget({ businessId, businessName, initialConfig, initialCard }: LoyaltyWidgetProps) {
   const { data: session } = useSession();
   const [card, setCard] = useState<LoyaltyCardData | null>(initialCard);
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [justRedeemed, setJustRedeemed] = useState(false);
 
   if (!initialConfig) return null;
@@ -36,18 +38,23 @@ export function LoyaltyWidget({ businessId, businessName, initialConfig, initial
   const needed = initialConfig.stampsNeeded;
   const progress = Math.min(stamps / needed, 1);
 
-  const handleStamp = async () => {
-    if (!session) return;
+  const handleStamp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session || !code.trim()) return;
     setLoading(true);
+    setError("");
     const res = await fetch("/api/loyalty/stamp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId }),
+      body: JSON.stringify({ businessId, code: code.trim().toUpperCase() }),
     });
     const data = await res.json();
     if (res.ok) {
       setCard(data.card);
+      setCode("");
       if (data.redeemed) setJustRedeemed(true);
+    } else {
+      setError(data.error || "Invalid code");
     }
     setLoading(false);
   };
@@ -106,13 +113,26 @@ export function LoyaltyWidget({ businessId, businessName, initialConfig, initial
           )}
 
           {session ? (
-            <button
-              onClick={handleStamp}
-              disabled={loading}
-              className="w-full bg-brand-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
-            >
-              {loading ? "Adding stamp..." : "🎫 Add a Stamp (I visited!)"}
-            </button>
+            <form onSubmit={handleStamp}>
+              <p className="text-xs text-gray-500 mb-2">Visiting? Ask the staff for a stamp code:</p>
+              <div className="flex gap-2">
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  placeholder="6-DIGIT CODE"
+                  maxLength={6}
+                  className="flex-1 min-w-0 px-3 py-2 text-sm font-mono tracking-widest uppercase border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+                />
+                <button
+                  type="submit"
+                  disabled={loading || code.length !== 6}
+                  className="flex-shrink-0 bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? "..." : "Stamp"}
+                </button>
+              </div>
+              {error && <p className="text-xs text-red-600 mt-1.5">{error}</p>}
+            </form>
           ) : (
             <Link href="/auth/signin" className="block w-full text-center bg-brand-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors">
               Sign in to earn stamps

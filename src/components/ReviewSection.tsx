@@ -3,19 +3,63 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { ThumbsUp, Reply, User } from "lucide-react";
+import { ThumbsUp, Reply, User, Pencil, Trash2 } from "lucide-react";
 import { StarRating } from "./StarRating";
+import { ReportButton } from "./ReportButton";
 import type { BusinessWithStats, ReviewWithUser } from "@/types";
 
 function formatDate(date: Date | string) {
   return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-function ReviewCard({ review, isOwner }: { review: ReviewWithUser; isOwner: boolean }) {
+function ReviewCard({
+  review,
+  isOwner,
+  isAuthor,
+  onDeleted,
+}: {
+  review: ReviewWithUser;
+  isOwner: boolean;
+  isAuthor: boolean;
+  onDeleted: (id: string) => void;
+}) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [ownerReply, setOwnerReply] = useState(review.ownerReply || "");
   const [submitting, setSubmitting] = useState(false);
+
+  // author edit state
+  const [editing, setEditing] = useState(false);
+  const [editRating, setEditRating] = useState(review.rating);
+  const [editTitle, setEditTitle] = useState(review.title || "");
+  const [editComment, setEditComment] = useState(review.comment);
+  const [shown, setShown] = useState({ rating: review.rating, title: review.title, comment: review.comment });
+  const [editErr, setEditErr] = useState("");
+
+  const saveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setEditErr("");
+    const res = await fetch(`/api/reviews/${review.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rating: editRating, title: editTitle, comment: editComment }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setShown({ rating: data.rating, title: data.title, comment: data.comment });
+      setEditing(false);
+    } else {
+      setEditErr(data.error || "Failed to save");
+    }
+    setSubmitting(false);
+  };
+
+  const deleteReview = async () => {
+    if (!confirm("Delete your review? This cannot be undone.")) return;
+    const res = await fetch(`/api/reviews/${review.id}`, { method: "DELETE" });
+    if (res.ok) onDeleted(review.id);
+  };
 
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,11 +95,38 @@ function ReviewCard({ review, isOwner }: { review: ReviewWithUser; isOwner: bool
             </div>
             <span className="text-xs text-gray-400">{formatDate(review.createdAt)}</span>
           </div>
-          <StarRating rating={review.rating} size="sm" className="mt-1" />
-          {review.title && <p className="font-semibold text-gray-900 text-sm mt-1">{review.title}</p>}
-          <p className="text-gray-700 text-sm mt-1 leading-relaxed">{review.comment}</p>
+          {editing ? (
+            <form onSubmit={saveEdit} className="mt-2 space-y-2">
+              <StarRating rating={editRating} size="md" interactive onChange={setEditRating} />
+              <input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Review title (optional)"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <textarea
+                value={editComment}
+                onChange={(e) => setEditComment(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              />
+              {editErr && <p className="text-xs text-red-600">{editErr}</p>}
+              <div className="flex gap-2">
+                <button type="submit" disabled={submitting} className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors">
+                  {submitting ? "Saving..." : "Save Changes"}
+                </button>
+                <button type="button" onClick={() => setEditing(false)} className="text-xs text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <StarRating rating={shown.rating} size="sm" className="mt-1" />
+              {shown.title && <p className="font-semibold text-gray-900 text-sm mt-1">{shown.title}</p>}
+              <p className="text-gray-700 text-sm mt-1 leading-relaxed">{shown.comment}</p>
+            </>
+          )}
 
-          <div className="flex items-center gap-3 mt-2">
+          <div className="flex items-center gap-3 mt-2 flex-wrap">
             <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-brand-600 transition-colors">
               <ThumbsUp className="w-3.5 h-3.5" /> Helpful ({review.helpful})
             </button>
@@ -64,6 +135,17 @@ function ReviewCard({ review, isOwner }: { review: ReviewWithUser; isOwner: bool
                 <Reply className="w-3.5 h-3.5" /> Reply as owner
               </button>
             )}
+            {isAuthor && !editing && (
+              <>
+                <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-brand-600 transition-colors">
+                  <Pencil className="w-3 h-3" /> Edit
+                </button>
+                <button onClick={deleteReview} className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors">
+                  <Trash2 className="w-3 h-3" /> Delete
+                </button>
+              </>
+            )}
+            {!isAuthor && <ReportButton targetType="REVIEW" targetId={review.id} />}
           </div>
 
           {replyOpen && (
@@ -202,15 +284,26 @@ export function ReviewSection({
   const { data: session } = useSession();
   const [reviews, setReviews] = useState<ReviewWithUser[]>(initialReviews);
 
-  const isOwner = (session?.user as { id?: string })?.id === business.ownerId;
+  const currentUserId = (session?.user as { id?: string })?.id;
+  const isOwner = currentUserId === business.ownerId;
 
   const addReview = (review: ReviewWithUser) => {
     setReviews((prev) => [review, ...prev]);
   };
 
+  const removeReview = (id: string) => {
+    setReviews((prev) => prev.filter((r) => r.id !== id));
+  };
+
   return (
     <div className="space-y-6">
-      <WriteReview businessId={business.id} onReviewAdded={addReview} />
+      {isOwner ? (
+        <div className="bg-gray-50 rounded-xl p-4 text-center text-sm text-gray-500">
+          This is your business — owners can&apos;t review their own listing, but you can reply to customer reviews below.
+        </div>
+      ) : (
+        <WriteReview businessId={business.id} onReviewAdded={addReview} />
+      )}
 
       {reviews.length === 0 ? (
         <div className="text-center py-8">
@@ -219,7 +312,13 @@ export function ReviewSection({
       ) : (
         <div className="space-y-5">
           {reviews.map((review) => (
-            <ReviewCard key={review.id} review={review} isOwner={isOwner} />
+            <ReviewCard
+              key={review.id}
+              review={review}
+              isOwner={isOwner}
+              isAuthor={currentUserId === review.userId}
+              onDeleted={removeReview}
+            />
           ))}
         </div>
       )}
